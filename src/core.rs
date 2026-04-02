@@ -10,6 +10,8 @@ pub struct AppSettings {
     pub left_color: [f32; 3],
     pub right_color: [f32; 3],
     pub show_settings: bool,
+    pub show_zone_preview: bool,
+    pub zone_width: f32,
 }
 
 impl Default for AppSettings {
@@ -22,13 +24,19 @@ impl Default for AppSettings {
             left_color: [0.0, 0.0, 0.0],
             right_color: [0.0, 0.0, 0.0],
             show_settings: false,
+            show_zone_preview: false,
+            zone_width: 120.0,
         }
     }
 }
 
 impl AppSettings {
     pub fn reset(&mut self) {
+        let show_settings = self.show_settings;
+        let show_zone_preview = self.show_zone_preview;
         *self = Self::default();
+        self.show_settings = show_settings;
+        self.show_zone_preview = show_zone_preview;
     }
 }
 

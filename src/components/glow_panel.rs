@@ -27,12 +27,13 @@ impl GlowPanel {
     ) {
         let settings = settings.clone();
         let is_left = self.is_left;
+
         ctx.show_viewport_immediate(
             egui::ViewportId::from_hash_of(&self.id),
             egui::ViewportBuilder::default()
                 .with_title(&self.title)
                 .with_decorations(false)
-                .with_transparent(false)
+                .with_transparent(true)
                 .with_always_on_top()
                 .with_taskbar(false)
                 .with_position(self.pos)
@@ -40,7 +41,7 @@ impl GlowPanel {
             move |ctx, _| {
                 ctx.request_repaint();
                 egui::CentralPanel::default()
-                    .frame(egui::Frame::NONE.fill(egui::Color32::BLACK))
+                    .frame(egui::Frame::NONE.fill(egui::Color32::TRANSPARENT))
                     .show_inside(ctx, |ui| {
                         let s = settings.read();
                         let color_arr = if is_left { s.left_color } else { s.right_color };

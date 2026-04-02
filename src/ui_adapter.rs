@@ -1,6 +1,7 @@
 use crate::components::glow_panel::GlowPanel;
 use crate::components::settings_panel::SettingsPanel;
 use crate::components::tray_manager::TrayManager;
+use crate::components::zone_preview::ZonePreview;
 use crate::core::SharedSettings;
 use eframe::egui;
 
@@ -12,6 +13,8 @@ pub struct UiAdapter {
     tray_manager: TrayManager,
     left_panel: GlowPanel,
     right_panel: GlowPanel,
+    left_preview: ZonePreview,
+    right_preview: ZonePreview,
 }
 
 impl UiAdapter {
@@ -21,6 +24,8 @@ impl UiAdapter {
             tray_manager: TrayManager::new(icon),
             left_panel: GlowPanel::new("left_panel", "Left", true, [-MONITOR_W, 0.0]),
             right_panel: GlowPanel::new("right_panel", "Right", false, [MONITOR_W, 0.0]),
+            left_preview: ZonePreview::new("left_preview", true),
+            right_preview: ZonePreview::new("right_preview", false),
         }
     }
 
@@ -33,6 +38,8 @@ impl UiAdapter {
             .show(ctx, self.settings.clone(), MONITOR_W, MONITOR_H);
         self.right_panel
             .show(ctx, self.settings.clone(), MONITOR_W, MONITOR_H);
+        self.left_preview.show(ctx, self.settings.clone());
+        self.right_preview.show(ctx, self.settings.clone());
     }
 
     pub fn render_settings(&mut self, ui: &mut egui::Ui) {
