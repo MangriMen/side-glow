@@ -5,10 +5,10 @@ use std::sync::Arc;
 use windows::Win32::Foundation::HMODULE;
 use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_HARDWARE, D3D_FEATURE_LEVEL_11_0};
 use windows::Win32::Graphics::Direct3D11::{
-    D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_SDK_VERSION, D3D11CreateDevice, ID3D11Device,
-    ID3D11DeviceContext,
+    D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+    D3D11_SDK_VERSION,
 };
-use windows::Win32::System::WinRT::{RO_INIT_MULTITHREADED, RoInitialize};
+use windows::Win32::System::WinRT::{RoInitialize, RO_INIT_MULTITHREADED};
 use windows_capture::{
     capture::{Context, GraphicsCaptureApiHandler},
     frame::Frame,
@@ -19,8 +19,6 @@ use windows_capture::{
         MinimumUpdateIntervalSettings, SecondaryWindowSettings, TryIntoCaptureItemWithType,
     },
 };
-
-const CAPTURE_WIDTH: u32 = 120;
 
 pub struct CaptureProcessor {
     settings: SharedSettings,
@@ -71,12 +69,14 @@ impl CaptureProcessor {
         let mut b = 0u64;
         let mut count = 0u64;
 
+        let capture_width = self.settings.read().zone_width as u32;
+
         let start_x = if is_left {
             0
         } else {
-            w.saturating_sub(CAPTURE_WIDTH)
+            w.saturating_sub(capture_width)
         };
-        let end_x = if is_left { CAPTURE_WIDTH.min(w) } else { w };
+        let end_x = if is_left { capture_width.min(w) } else { w };
 
         for y in (0..h).step_by(20) {
             for x in (start_x..end_x).step_by(20) {
