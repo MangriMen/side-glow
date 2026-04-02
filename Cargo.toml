@@ -13,15 +13,21 @@ path = "src/main.rs"
 winres = "0.1"
 
 [dependencies]
-eframe = "0.34.0"
+# Use default features for eframe/egui, but consider disabling unnecessary ones if possible.
+# eframe 0.34.0 defaults include wgpu, which is likely needed.
+eframe = { version = "0.34.0", default-features = false, features = [
+  "wgpu",
+  "default_fonts",
+] }
 egui = "0.34.0"
 parking_lot = "0.12.3"
 tray-icon = "0.21.3"
 anyhow = "1.0.95"
 windows-capture = "1.1.0"
-resvg = "0.47.0"
+# resvg and usvg can be heavy. If only specific SVG features are used, consider if they can be minimized.
+resvg = { version = "0.47.0", default-features = false }
 tiny-skia = "0.12.0"
-usvg = "0.47.0"
+usvg = { version = "0.47.0", default-features = false }
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.61.3"
