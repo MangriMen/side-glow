@@ -1,7 +1,7 @@
 //! The glow itself: one borderless window covering the target monitor per output.
 
 use super::overlay::{overlay_builder, OverlayState};
-use crate::config::{Edge, Falloff, GlowMode, LookConfig, OutputKey};
+use crate::config::{Edge, GlowMode, LookConfig, OutputKey};
 use crate::display::layout::{ResolvedOutput, SegmentLayout};
 use crate::display::PxRect;
 use crate::glow::bus::ColorBus;
@@ -13,7 +13,9 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// Vertex columns across the glow depth; enough for smooth falloff curves.
+/// Vertex columns across the glow depth; enough for a smooth falloff curve. Columns are
+/// spaced by `falloff_point`, not evenly, so this covers the whole monitor depth without
+/// visible banding near the edge, where the curve bends fastest.
 const FALLOFF_COLUMNS: usize = 24;
 /// Frame interval while smoothing towards new colors. A soft glow gains nothing from
 /// the monitor's full refresh rate, and each repaint presents a full-screen window.
@@ -31,11 +33,10 @@ pub struct GlowSpec {
     pub segments: SegmentLayout,
     pub mode: GlowMode,
     pub opacity: f32,
-    pub depth: f32,
+    pub spread: f32,
     pub brightness: f32,
     pub saturation: f32,
     pub smoothing_ms: f32,
-    pub falloff: Falloff,
 }
 
 impl GlowSpec {
@@ -50,11 +51,10 @@ impl GlowSpec {
             segments: output.segments,
             mode: config.mode,
             opacity: config.opacity.unwrap_or(look.opacity),
-            depth: config.glow_depth.unwrap_or(look.glow_depth),
+            spread: config.glow_spread.unwrap_or(look.glow_spread),
             brightness: config.brightness.unwrap_or(look.brightness),
             saturation: look.saturation,
             smoothing_ms: look.smoothing_ms,
-            falloff: look.falloff,
         }
     }
 }
@@ -136,6 +136,20 @@ fn render(ui: &mut egui::Ui, spec: &GlowSpec, state: &mut GlowState, bus: &Color
     }
 }
 
+/// Point along the glow's depth axis and its intensity there, following the illumination
+/// a flat surface gets from a line source standing `spread` away from it (fraction of the
+/// monitor's size): a Lorentzian `1 / (1 + (x/spread)^2)`, with no cutoff — it just keeps
+/// decaying. `t` in `0..=1` is remapped through `x = spread * tan(θ)`, so `weight = cos²θ`
+/// exactly, and the substitution itself concentrates points near the edge, where the curve
+/// bends fastest, without a separate density table.
+fn falloff_point(t: f32, spread: f32) -> (f32, f32) {
+    let theta_max = (1.0 / spread).atan();
+    let theta = t * theta_max;
+    let x = spread * theta.tan();
+    let weight = theta.cos().powi(2);
+    (x, weight)
+}
+
 /// A grid of vertices: rows along the edge at the segment centers, columns across the
 /// glow depth following the falloff curve.
 fn glow_mesh(spec: &GlowSpec, rect: Rect, colors: &[Rgb]) -> Mesh {
@@ -151,7 +165,7 @@ fn glow_mesh(spec: &GlowSpec, rect: Rect, colors: &[Rgb]) -> Mesh {
     rows.push((1.0, colors[count - 1]));
 
     let along_y = spec.anchor.is_vertical();
-    let reach = if along_y { rect.width() } else { rect.height() } * spec.depth;
+    let reach = if along_y { rect.width() } else { rect.height() };
     let point = |along: f32, dist: f32| -> Pos2 {
         let a = if along_y {
             egui::lerp(rect.top()..=rect.bottom(), along)
@@ -170,12 +184,12 @@ fn glow_mesh(spec: &GlowSpec, rect: Rect, colors: &[Rgb]) -> Mesh {
     for &(along, color) in &rows {
         for col in 0..FALLOFF_COLUMNS {
             let t = col as f32 / (FALLOFF_COLUMNS - 1) as f32;
-            let weight = spec.falloff.weight(t);
+            let (x_frac, weight) = falloff_point(t, spec.spread);
             let vertex_color = match spec.mode {
                 GlowMode::Overlay => to_color32(color, weight * spec.opacity),
                 GlowMode::Dedicated => to_color32(color.map(|c| c * weight), 1.0),
             };
-            mesh.colored_vertex(point(along, t * reach), vertex_color);
+            mesh.colored_vertex(point(along, x_frac * reach), vertex_color);
         }
     }
     for row in 0..rows.len() as u32 - 1 {

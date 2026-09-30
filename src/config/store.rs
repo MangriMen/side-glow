@@ -120,12 +120,12 @@ mod tests {
             },
             source_edge: Edge::Top,
             mode: GlowMode::Dedicated,
-            glow_depth: Some(0.3),
+            glow_spread: Some(0.3),
             ..Default::default()
         });
         let text = toml::to_string_pretty(&config).unwrap();
-        assert!(text.contains("glow_depth = 0.45\n"), "{text}");
-        assert!(text.contains("glow_depth = 0.3\n"), "{text}");
+        assert!(text.contains("glow_spread = 0.08\n"), "{text}");
+        assert!(text.contains("glow_spread = 0.3\n"), "{text}");
         assert_eq!(parse(&text).unwrap(), config);
     }
 

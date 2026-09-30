@@ -12,7 +12,7 @@ pub const FPS_RANGE: std::ops::RangeInclusive<u32> = 1..=144;
 pub const STRIDE_RANGE: std::ops::RangeInclusive<u32> = 1..=64;
 pub const SEGMENTS_RANGE: std::ops::RangeInclusive<u32> = 1..=64;
 pub const ZONE_DEPTH_RANGE: std::ops::RangeInclusive<u32> = 8..=1000;
-pub const GLOW_DEPTH_RANGE: std::ops::RangeInclusive<f32> = 0.01..=1.0;
+pub const GLOW_SPREAD_RANGE: std::ops::RangeInclusive<f32> = 0.01..=0.5;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -109,10 +109,9 @@ pub struct LookConfig {
     /// Time constant of the exponential color smoothing, in milliseconds.
     #[serde(serialize_with = "pretty_f32::serialize")]
     pub smoothing_ms: f32,
-    /// Glow reach as a fraction of the target monitor size across the edge.
+    /// How quickly the glow fades from the edge, as a fraction of the target monitor size.
     #[serde(serialize_with = "pretty_f32::serialize")]
-    pub glow_depth: f32,
-    pub falloff: Falloff,
+    pub glow_spread: f32,
     /// Maximum opacity of overlay glows.
     #[serde(serialize_with = "pretty_f32::serialize")]
     pub opacity: f32,
@@ -124,8 +123,7 @@ impl Default for LookConfig {
             brightness: 1.0,
             saturation: 1.0,
             smoothing_ms: 150.0,
-            glow_depth: 0.45,
-            falloff: Falloff::Smooth,
+            glow_spread: 0.08,
             opacity: 1.0,
         }
     }
@@ -136,46 +134,13 @@ impl LookConfig {
         self.brightness = clamp_f32(self.brightness, 0.0, 2.0, 1.0);
         self.saturation = clamp_f32(self.saturation, 0.0, 2.0, 1.0);
         self.smoothing_ms = clamp_f32(self.smoothing_ms, 0.0, 2000.0, 150.0);
-        self.glow_depth = clamp_f32(
-            self.glow_depth,
-            *GLOW_DEPTH_RANGE.start(),
-            *GLOW_DEPTH_RANGE.end(),
-            0.45,
+        self.glow_spread = clamp_f32(
+            self.glow_spread,
+            *GLOW_SPREAD_RANGE.start(),
+            *GLOW_SPREAD_RANGE.end(),
+            0.08,
         );
         self.opacity = clamp_f32(self.opacity, 0.0, 1.0, 1.0);
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Falloff {
-    Linear,
-    Smooth,
-    Exponential,
-}
-
-impl Falloff {
-    pub const ALL: [Self; 3] = [Self::Linear, Self::Smooth, Self::Exponential];
-
-    /// Glow intensity at relative distance `t` (0 = edge, 1 = end of the glow).
-    pub fn weight(self, t: f32) -> f32 {
-        let t = t.clamp(0.0, 1.0);
-        match self {
-            Self::Linear => 1.0 - t,
-            Self::Smooth => (1.0 - t) * (1.0 - t) * (1.0 + 2.0 * t),
-            Self::Exponential => {
-                const K: f32 = 4.0;
-                let end = (-K).exp();
-                ((-K * t).exp() - end) / (1.0 - end)
-            }
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Linear => "Linear",
-            Self::Smooth => "Smooth",
-            Self::Exponential => "Exponential",
-        }
     }
 }
 
@@ -308,7 +273,7 @@ pub struct OutputConfig {
         skip_serializing_if = "Option::is_none",
         serialize_with = "pretty_f32::serialize_option"
     )]
-    pub glow_depth: Option<f32>,
+    pub glow_spread: Option<f32>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         serialize_with = "pretty_f32::serialize_option"
@@ -328,7 +293,7 @@ impl Default for OutputConfig {
             segments: None,
             zone_depth_px: None,
             opacity: None,
-            glow_depth: None,
+            glow_spread: None,
             brightness: None,
         }
     }
@@ -359,9 +324,14 @@ impl OutputConfig {
             .zone_depth_px
             .map(|d| clamp_range(d, &ZONE_DEPTH_RANGE));
         self.opacity = self.opacity.map(|o| clamp_f32(o, 0.0, 1.0, 1.0));
-        self.glow_depth = self
-            .glow_depth
-            .map(|d| clamp_f32(d, *GLOW_DEPTH_RANGE.start(), *GLOW_DEPTH_RANGE.end(), 0.45));
+        self.glow_spread = self.glow_spread.map(|d| {
+            clamp_f32(
+                d,
+                *GLOW_SPREAD_RANGE.start(),
+                *GLOW_SPREAD_RANGE.end(),
+                0.08,
+            )
+        });
         self.brightness = self.brightness.map(|b| clamp_f32(b, 0.0, 2.0, 1.0));
     }
 }
@@ -410,15 +380,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn falloff_hits_both_ends() {
-        for falloff in Falloff::ALL {
-            assert!((falloff.weight(0.0) - 1.0).abs() < 1e-5, "{falloff:?}");
-            assert!(falloff.weight(1.0).abs() < 1e-5, "{falloff:?}");
-            assert!(falloff.weight(0.3) > falloff.weight(0.6), "{falloff:?}");
-        }
-    }
-
-    #[test]
     fn sanitize_clamps_hand_edited_values() {
         let mut config = Config::default();
         config.capture.target_fps = 0;
@@ -448,7 +409,7 @@ mod tests {
             segments: Some(8),
             zone_depth_px: Some(120),
             opacity: Some(1.0),
-            glow_depth: Some(0.3),
+            glow_spread: Some(0.3),
             ..Default::default()
         });
         config.sanitize();
@@ -459,7 +420,7 @@ mod tests {
             (None, None, None)
         );
         // Overrides that already existed in version 1 are kept.
-        assert_eq!(output.glow_depth, Some(0.3));
+        assert_eq!(output.glow_spread, Some(0.3));
     }
 
     #[test]

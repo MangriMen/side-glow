@@ -2,8 +2,8 @@
 
 use crate::capture::SessionStatus;
 use crate::config::{
-    CaptureConfig, Config, Edge, Falloff, GlowMode, LookConfig, MonitorId, OutputConfig,
-    SegmentMapping, FPS_RANGE, GLOW_DEPTH_RANGE, SEGMENTS_RANGE, STRIDE_RANGE, ZONE_DEPTH_RANGE,
+    CaptureConfig, Config, Edge, GlowMode, LookConfig, MonitorId, OutputConfig, SegmentMapping,
+    FPS_RANGE, GLOW_SPREAD_RANGE, SEGMENTS_RANGE, STRIDE_RANGE, ZONE_DEPTH_RANGE,
 };
 use crate::display::layout::{source_monitors, ResolvedOutput};
 use crate::display::{MonitorInfo, PxRect};
@@ -123,19 +123,10 @@ fn look_section(ui: &mut egui::Ui, look: &mut LookConfig) {
     slider(ui, &mut look.opacity, 0.0..=1.0, "Opacity", help::OPACITY);
     slider(
         ui,
-        &mut look.glow_depth,
-        GLOW_DEPTH_RANGE,
-        "Glow depth",
-        help::GLOW_DEPTH,
-    );
-    combo(
-        ui,
-        "falloff",
-        "Falloff",
-        help::FALLOFF,
-        &mut look.falloff,
-        &Falloff::ALL,
-        |f| f.label(),
+        &mut look.glow_spread,
+        GLOW_SPREAD_RANGE,
+        "Glow spread",
+        help::GLOW_SPREAD,
     );
     ui.add(
         egui::Slider::new(&mut look.smoothing_ms, 0.0..=2000.0)
@@ -479,10 +470,10 @@ fn output_editor(
     }
     override_slider(
         ui,
-        "Glow depth",
-        &mut output.glow_depth,
-        look.glow_depth,
-        GLOW_DEPTH_RANGE,
+        "Glow spread",
+        &mut output.glow_spread,
+        look.glow_spread,
+        GLOW_SPREAD_RANGE,
     );
     override_slider(
         ui,
@@ -605,12 +596,10 @@ mod help {
     pub const OPACITY: &str = "Maximum opacity of Overlay glows at the edge next to the main \
         screen. Lower values keep the windows underneath visible.\n\
         Not used in Dedicated mode.";
-    pub const GLOW_DEPTH: &str = "How far the glow reaches into the neighbouring monitor, as a \
-        fraction of its width (or height, for monitors above and below).";
-    pub const FALLOFF: &str = "How the glow fades out.\n\
-        Linear: evenly.\n\
-        Smooth: soft near the edge and at the end.\n\
-        Exponential: bright near the edge with a long faint tail.";
+    pub const GLOW_SPREAD: &str = "How quickly the glow fades away from the edge, as a \
+        fraction of the neighbouring monitor's width (or height, for monitors above and \
+        below). Smaller values give a tighter, more contained glow; larger values spread \
+        further before fading.";
     pub const SMOOTHING: &str = "How long color changes take. Higher values are calmer and \
         hide flicker; 0 follows the screen instantly.";
 
