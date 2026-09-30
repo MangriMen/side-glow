@@ -126,8 +126,6 @@ impl SideGlowApp {
                 ctx.request_repaint();
             }
         }
-        // The settings window shows live colors while it is open.
-        self.bus.set_notify_root(self.show_settings);
     }
 
     fn refresh_monitors(&mut self) {

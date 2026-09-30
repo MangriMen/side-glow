@@ -56,11 +56,12 @@ impl ZonePreview {
         true
     }
 
+    /// WORKAROUND: immediate, not deferred — see the comment on `GlowWindow::show`.
     pub fn show(&self, ctx: &egui::Context) {
         let spec = self.spec.clone();
         let state = self.state.clone();
         let builder = overlay_builder(&spec.title, spec.rect, spec.scale, true);
-        ctx.show_viewport_deferred(spec.viewport_id(), builder, move |ui, _| {
+        ctx.show_viewport_immediate(spec.viewport_id(), builder, move |ui, _| {
             state.lock().update(ui.ctx(), &spec.title, spec.rect);
             paint(ui, &spec);
         });

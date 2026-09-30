@@ -87,8 +87,13 @@ impl GlowWindow {
         true
     }
 
-    /// Registers the window for this root pass. It repaints on its own afterwards, whenever
-    /// the color bus publishes new colors for it.
+    /// Registers the window for this root pass and redraws it right away.
+    ///
+    /// WORKAROUND: this is an immediate viewport, not a deferred one, because deferred
+    /// viewports on Windows randomly stop repainting when more than one is open — egui
+    /// issues #8466 / #4945, still open as of egui 0.36.2, unmerged fix in PR #8650. Switch
+    /// back to `show_viewport_deferred` once that lands in a released egui/eframe; until
+    /// then `ColorBus::publish` wakes root unconditionally so this keeps getting called.
     pub fn show(&self, ctx: &egui::Context, bus: &Arc<ColorBus>) {
         let spec = self.spec.clone();
         let state = self.state.clone();
@@ -99,7 +104,7 @@ impl GlowWindow {
             spec.scale,
             spec.mode == GlowMode::Overlay,
         );
-        ctx.show_viewport_deferred(glow_viewport_id(spec.key), builder, move |ui, _| {
+        ctx.show_viewport_immediate(glow_viewport_id(spec.key), builder, move |ui, _| {
             render(ui, &spec, &mut state.lock(), &bus);
         });
     }
