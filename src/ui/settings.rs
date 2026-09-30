@@ -2,14 +2,15 @@
 
 use crate::capture::SessionStatus;
 use crate::config::{
-    Config, Edge, Falloff, GlowMode, MonitorId, OutputConfig, SegmentMapping, FPS_RANGE,
-    GLOW_DEPTH_RANGE, SEGMENTS_RANGE, STRIDE_RANGE, ZONE_DEPTH_RANGE,
+    CaptureConfig, Config, Edge, Falloff, GlowMode, LookConfig, MonitorId, OutputConfig,
+    SegmentMapping, FPS_RANGE, GLOW_DEPTH_RANGE, SEGMENTS_RANGE, STRIDE_RANGE, ZONE_DEPTH_RANGE,
 };
 use crate::display::layout::{source_monitors, ResolvedOutput};
 use crate::display::{MonitorInfo, PxRect};
 use crate::glow::bus::ColorBus;
 use crate::glow::color::{adjust, to_color32};
-use eframe::egui::{self, Align2, Color32, FontId, Rect, Sense, StrokeKind};
+use eframe::egui::{self, emath::Numeric, Align2, Color32, FontId, Rect, Sense, StrokeKind};
+use std::ops::RangeInclusive;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SettingsAction {
@@ -40,22 +41,18 @@ pub fn show(ui: &mut egui::Ui, view: SettingsView) -> Option<SettingsAction> {
             .show(ui, |ui| {
                 monitor_map(ui, view.config, view.monitors, view.outputs, view.bus);
                 ui.checkbox(&mut view.config.auto_layout, "Automatic layout")
-                    .on_hover_text("Create a glow for every monitor touching a captured one");
-                ui.checkbox(&mut view.config.show_zone_preview, "Show capture zones");
+                    .on_hover_text(help::AUTO_LAYOUT);
+                ui.checkbox(&mut view.config.show_zone_preview, "Show capture zones")
+                    .on_hover_text(help::ZONE_PREVIEW);
             });
 
         egui::CollapsingHeader::new("Look")
             .default_open(true)
-            .show(ui, |ui| look_section(ui, view.config));
+            .show(ui, |ui| look_section(ui, &mut view.config.look));
 
-        egui::CollapsingHeader::new("Capture").show(ui, |ui| {
-            let capture = &mut view.config.capture;
-            ui.add(egui::Slider::new(&mut capture.target_fps, FPS_RANGE).text("Capture FPS"));
-            ui.add(
-                egui::Slider::new(&mut capture.sample_stride, STRIDE_RANGE)
-                    .text("Sample every Nth pixel"),
-            );
-        });
+        egui::CollapsingHeader::new("Capture")
+            .default_open(true)
+            .show(ui, |ui| capture_section(ui, &mut view.config.capture));
 
         egui::CollapsingHeader::new(format!("Outputs ({})", view.config.outputs.len()))
             .default_open(true)
@@ -68,13 +65,17 @@ pub fn show(ui: &mut egui::Ui, view: SettingsView) -> Option<SettingsAction> {
         ui.separator();
         ui.horizontal(|ui| {
             let pause_label = if view.paused { "Resume" } else { "Pause" };
-            if ui.button(pause_label).clicked() {
+            if ui.button(pause_label).on_hover_text(help::PAUSE).clicked() {
                 action = Some(SettingsAction::TogglePause);
             }
-            if ui.button("Reset to defaults").clicked() {
+            if ui
+                .button("Reset to defaults")
+                .on_hover_text(help::RESET)
+                .clicked()
+            {
                 action = Some(SettingsAction::ResetDefaults);
             }
-            if ui.button("Quit").clicked() {
+            if ui.button("Quit").on_hover_text(help::QUIT).clicked() {
                 action = Some(SettingsAction::Quit);
             }
         });
@@ -104,23 +105,73 @@ fn status_line(ui: &mut egui::Ui, status: &[(String, SessionStatus)], paused: bo
     }
 }
 
-fn look_section(ui: &mut egui::Ui, config: &mut Config) {
-    let look = &mut config.look;
-    ui.add(egui::Slider::new(&mut look.brightness, 0.0..=2.0).text("Brightness"));
-    ui.add(egui::Slider::new(&mut look.saturation, 0.0..=2.0).text("Saturation"));
-    ui.add(
-        egui::Slider::new(&mut look.smoothing_ms, 0.0..=2000.0)
-            .text("Smoothing")
-            .suffix(" ms"),
+fn look_section(ui: &mut egui::Ui, look: &mut LookConfig) {
+    slider(
+        ui,
+        &mut look.brightness,
+        0.0..=2.0,
+        "Brightness",
+        help::BRIGHTNESS,
     );
-    ui.add(egui::Slider::new(&mut look.glow_depth, GLOW_DEPTH_RANGE).text("Glow depth"));
+    slider(
+        ui,
+        &mut look.saturation,
+        0.0..=2.0,
+        "Saturation",
+        help::SATURATION,
+    );
+    slider(ui, &mut look.opacity, 0.0..=1.0, "Opacity", help::OPACITY);
+    slider(
+        ui,
+        &mut look.glow_depth,
+        GLOW_DEPTH_RANGE,
+        "Glow depth",
+        help::GLOW_DEPTH,
+    );
     combo(
         ui,
         "falloff",
         "Falloff",
+        help::FALLOFF,
         &mut look.falloff,
         &Falloff::ALL,
         |f| f.label(),
+    );
+    ui.add(
+        egui::Slider::new(&mut look.smoothing_ms, 0.0..=2000.0)
+            .text("Smoothing")
+            .suffix(" ms"),
+    )
+    .on_hover_text(help::SMOOTHING);
+}
+
+fn capture_section(ui: &mut egui::Ui, capture: &mut CaptureConfig) {
+    slider(
+        ui,
+        &mut capture.segments,
+        SEGMENTS_RANGE,
+        "Zones per edge",
+        help::ZONES,
+    );
+    ui.add(
+        egui::Slider::new(&mut capture.zone_depth_px, ZONE_DEPTH_RANGE)
+            .text("Capture zone depth")
+            .suffix(" px"),
+    )
+    .on_hover_text(help::ZONE_DEPTH);
+    slider(
+        ui,
+        &mut capture.target_fps,
+        FPS_RANGE,
+        "Capture FPS",
+        help::FPS,
+    );
+    slider(
+        ui,
+        &mut capture.sample_stride,
+        STRIDE_RANGE,
+        "Sample every Nth pixel",
+        help::STRIDE,
     );
 }
 
@@ -199,26 +250,30 @@ fn monitor_map(
         };
         let target = to_screen(&output.target.rect);
         let edge = output.config.source_edge.opposite();
+        let brightness = output.config.brightness.unwrap_or(config.look.brightness);
         let count = colors.len() as f32;
         for (i, &c) in colors.iter().enumerate() {
             let (t0, t1) = (i as f32 / count, (i + 1) as f32 / count);
             let (from, to) = output.segments.target;
             let (a, b) = (from + (to - from) * t0, from + (to - from) * t1);
             let strip = edge_strip(target, edge, a, b, 5.0);
-            let color = adjust(c, config.look.brightness, config.look.saturation);
+            let color = adjust(c, brightness, config.look.saturation);
             painter.rect_filled(strip, 0.0, to_color32(color, 1.0));
         }
     }
 
-    if config.auto_layout {
-        let response = response.on_hover_text("Click a monitor to toggle capturing it");
-        if response.clicked() {
-            let clicked = response
-                .interact_pointer_pos()
-                .and_then(|pos| monitors.iter().find(|m| to_screen(&m.rect).contains(pos)));
-            if let Some(monitor) = clicked {
-                toggle_source(config, &sources, &monitor.id);
-            }
+    let hint = if config.auto_layout {
+        help::MAP_AUTO
+    } else {
+        help::MAP_MANUAL
+    };
+    let response = response.on_hover_text(hint);
+    if config.auto_layout && response.clicked() {
+        let clicked = response
+            .interact_pointer_pos()
+            .and_then(|pos| monitors.iter().find(|m| to_screen(&m.rect).contains(pos)));
+        if let Some(monitor) = clicked {
+            toggle_source(config, &sources, &monitor.id);
         }
     }
 }
@@ -264,15 +319,22 @@ fn outputs_section(
     config: &mut Config,
     monitors: &[MonitorInfo],
 ) -> Option<SettingsAction> {
-    let manual = !config.auto_layout;
+    let Config {
+        outputs,
+        capture,
+        look,
+        auto_layout,
+        ..
+    } = config;
+    let manual = !*auto_layout;
     let mut action = None;
     let mut remove = None;
 
-    if config.outputs.is_empty() {
+    if outputs.is_empty() {
         ui.label("No outputs. Connect a monitor next to a captured one, or add one manually.");
     }
 
-    for (index, output) in config.outputs.iter_mut().enumerate() {
+    for (index, output) in outputs.iter_mut().enumerate() {
         let connected = [&output.source, &output.target]
             .iter()
             .all(|id| monitors.iter().any(|m| m.id.matches(id)));
@@ -288,34 +350,35 @@ fn outputs_section(
         }
 
         ui.horizontal(|ui| {
-            ui.checkbox(&mut output.enabled, "");
+            ui.checkbox(&mut output.enabled, "")
+                .on_hover_text(help::OUTPUT_ENABLED);
             egui::CollapsingHeader::new(title)
                 .id_salt(("output", index))
                 .show(ui, |ui| {
                     if manual {
                         link_editor(ui, index, output, monitors);
-                        if ui.button("Remove").clicked() {
+                        if ui.button("Remove").on_hover_text(help::REMOVE).clicked() {
                             remove = Some(index);
                         }
                         ui.separator();
                     }
-                    output_editor(ui, index, output);
+                    output_editor(ui, index, output, capture, look);
                 });
         });
     }
 
     if let Some(index) = remove {
-        config.outputs.remove(index);
+        outputs.remove(index);
     }
 
     if manual {
         ui.horizontal(|ui| {
-            if ui.button("Add output").clicked() {
-                config.outputs.push(new_manual_output(monitors));
+            if ui.button("Add output").on_hover_text(help::ADD).clicked() {
+                outputs.push(new_manual_output(monitors));
             }
             if ui
                 .button("Detect from layout")
-                .on_hover_text("Replace the outputs with the automatic layout once")
+                .on_hover_text(help::DETECT)
                 .clicked()
             {
                 action = Some(SettingsAction::DetectLayout);
@@ -347,6 +410,7 @@ fn link_editor(
         ui,
         ("source", index),
         "Capture from",
+        help::SOURCE,
         &mut output.source,
         monitors,
     );
@@ -354,6 +418,7 @@ fn link_editor(
         ui,
         ("edge", index),
         "Edge",
+        help::EDGE,
         &mut output.source_edge,
         &Edge::ALL,
         |e| e.label(),
@@ -362,61 +427,108 @@ fn link_editor(
         ui,
         ("target", index),
         "Glow on",
+        help::TARGET,
         &mut output.target,
         monitors,
     );
 }
 
-fn output_editor(ui: &mut egui::Ui, index: usize, output: &mut OutputConfig) {
+fn output_editor(
+    ui: &mut egui::Ui,
+    index: usize,
+    output: &mut OutputConfig,
+    capture: &CaptureConfig,
+    look: &LookConfig,
+) {
     combo(
         ui,
         ("mode", index),
         "Mode",
+        help::MODE,
         &mut output.mode,
         &GlowMode::ALL,
         |m| m.label(),
-    );
-    if output.mode == GlowMode::Overlay {
-        ui.add(egui::Slider::new(&mut output.opacity, 0.0..=1.0).text("Opacity"));
-    }
-    ui.add(egui::Slider::new(&mut output.segments, SEGMENTS_RANGE).text("Segments"));
-    ui.add(
-        egui::Slider::new(&mut output.zone_depth_px, ZONE_DEPTH_RANGE)
-            .text("Capture zone depth")
-            .suffix(" px"),
     );
     combo(
         ui,
         ("mapping", index),
         "Mapping",
+        help::MAPPING,
         &mut output.mapping,
         &SegmentMapping::ALL,
         |m| m.label(),
     );
-    optional_slider(
+
+    ui.label("Overrides").on_hover_text(help::OVERRIDES);
+    override_slider(
         ui,
-        "Own glow depth",
+        "Zones per edge",
+        &mut output.segments,
+        capture.segments,
+        SEGMENTS_RANGE,
+    );
+    override_slider(
+        ui,
+        "Capture zone depth",
+        &mut output.zone_depth_px,
+        capture.zone_depth_px,
+        ZONE_DEPTH_RANGE,
+    );
+    if output.mode == GlowMode::Overlay {
+        override_slider(ui, "Opacity", &mut output.opacity, look.opacity, 0.0..=1.0);
+    }
+    override_slider(
+        ui,
+        "Glow depth",
         &mut output.glow_depth,
-        0.45,
+        look.glow_depth,
         GLOW_DEPTH_RANGE,
     );
-    optional_slider(ui, "Own brightness", &mut output.brightness, 1.0, 0.0..=2.0);
+    override_slider(
+        ui,
+        "Brightness",
+        &mut output.brightness,
+        look.brightness,
+        0.0..=2.0,
+    );
 }
 
-fn optional_slider(
+fn slider<T: Numeric>(
+    ui: &mut egui::Ui,
+    value: &mut T,
+    range: RangeInclusive<T>,
+    label: &str,
+    help: &str,
+) {
+    ui.add(egui::Slider::new(value, range).text(label))
+        .on_hover_text(help);
+}
+
+/// A per-output value that falls back to the global setting while unchecked.
+fn override_slider<T: Numeric + std::fmt::Display>(
     ui: &mut egui::Ui,
     label: &str,
-    value: &mut Option<f32>,
-    default: f32,
-    range: std::ops::RangeInclusive<f32>,
+    value: &mut Option<T>,
+    global: T,
+    range: RangeInclusive<T>,
 ) {
     ui.horizontal(|ui| {
         let mut enabled = value.is_some();
-        if ui.checkbox(&mut enabled, label).changed() {
-            *value = enabled.then_some(default);
+        if ui
+            .checkbox(&mut enabled, label)
+            .on_hover_text(help::OVERRIDES)
+            .changed()
+        {
+            // Start from the current global value, so ticking the box changes nothing yet.
+            *value = enabled.then_some(global);
         }
-        if let Some(v) = value {
-            ui.add(egui::Slider::new(v, range));
+        match value {
+            Some(v) => {
+                ui.add(egui::Slider::new(v, range));
+            }
+            None => {
+                ui.weak(format!("global: {global}"));
+            }
         }
     });
 }
@@ -425,6 +537,7 @@ fn combo<T: Copy + PartialEq>(
     ui: &mut egui::Ui,
     id: impl std::hash::Hash + std::fmt::Debug,
     label: &str,
+    help: &str,
     value: &mut T,
     options: &[T],
     name: impl Fn(T) -> &'static str,
@@ -436,8 +549,10 @@ fn combo<T: Copy + PartialEq>(
                 for &option in options {
                     ui.selectable_value(value, option, name(option));
                 }
-            });
-        ui.label(label);
+            })
+            .response
+            .on_hover_text(help);
+        ui.label(label).on_hover_text(help);
     });
 }
 
@@ -445,6 +560,7 @@ fn monitor_combo(
     ui: &mut egui::Ui,
     id: impl std::hash::Hash + std::fmt::Debug,
     label: &str,
+    help: &str,
     value: &mut MonitorId,
     monitors: &[MonitorInfo],
 ) {
@@ -464,7 +580,69 @@ fn monitor_combo(
                         *value = monitor.id.clone();
                     }
                 }
-            });
-        ui.label(label);
+            })
+            .response
+            .on_hover_text(help);
+        ui.label(label).on_hover_text(help);
     });
+}
+
+/// Hover texts for the settings.
+mod help {
+    pub const AUTO_LAYOUT: &str = "Create a glow on every monitor that touches a captured \
+        monitor, and keep it up to date when monitors are connected or moved.\n\
+        Turn off to add and edit outputs by hand.";
+    pub const ZONE_PREVIEW: &str =
+        "Draw red frames around the areas of the screen that are sampled.";
+    pub const MAP_AUTO: &str = "Captured monitors are highlighted; click a monitor to toggle \
+        capturing it. The strips show the current glow colors.";
+    pub const MAP_MANUAL: &str = "The strips show the current glow colors. Choose captured \
+        monitors per output below, or turn on the automatic layout.";
+
+    pub const BRIGHTNESS: &str =
+        "Multiplies the glow color. Above 1 lets dark scenes glow brighter.";
+    pub const SATURATION: &str = "Color intensity: 0 is grayscale, 1 is as captured, 2 is boosted.";
+    pub const OPACITY: &str = "Maximum opacity of Overlay glows at the edge next to the main \
+        screen. Lower values keep the windows underneath visible.\n\
+        Not used in Dedicated mode.";
+    pub const GLOW_DEPTH: &str = "How far the glow reaches into the neighbouring monitor, as a \
+        fraction of its width (or height, for monitors above and below).";
+    pub const FALLOFF: &str = "How the glow fades out.\n\
+        Linear: evenly.\n\
+        Smooth: soft near the edge and at the end.\n\
+        Exponential: bright near the edge with a long faint tail.";
+    pub const SMOOTHING: &str = "How long color changes take. Higher values are calmer and \
+        hide flicker; 0 follows the screen instantly.";
+
+    pub const ZONES: &str = "How many separate colors are taken along each edge.\n\
+        1: one average color per side.\n\
+        More: the glow follows the picture along the edge, like Ambilight.";
+    pub const ZONE_DEPTH: &str = "How far into the captured screen, in pixels, colors are \
+        averaged for each edge. Small values react to what is right at the border.";
+    pub const FPS: &str = "How often the screen is sampled. Higher is more responsive and \
+        uses more CPU and GPU. Changing it briefly restarts capture.";
+    pub const STRIDE: &str = "Only every Nth pixel of a capture zone is averaged, in both \
+        directions. Higher is cheaper and usually looks the same.";
+
+    pub const OUTPUT_ENABLED: &str = "Turn this glow on or off.";
+    pub const MODE: &str = "Overlay: a transparent layer on top of whatever that monitor \
+        shows; clicks pass through it.\n\
+        Dedicated: the monitor is used only as a light; the glow fades into black.";
+    pub const MAPPING: &str = "Stretch: the whole edge of the captured screen is spread over \
+        the whole side of this monitor.\n\
+        Aligned: only the parts of the edges that physically face each other are used \
+        (for monitors of different sizes or with an offset).";
+    pub const OVERRIDES: &str = "Tick to use a different value for this output only. \
+        Unticked, the global setting above is used.";
+    pub const SOURCE: &str = "The monitor whose picture is sampled.";
+    pub const EDGE: &str = "Which edge of the captured monitor is sampled.";
+    pub const TARGET: &str = "The monitor that shows the glow.";
+    pub const ADD: &str = "Add an output to configure by hand.";
+    pub const REMOVE: &str = "Delete this output.";
+    pub const DETECT: &str = "Replace the outputs with what the automatic layout would \
+        create, once.";
+
+    pub const PAUSE: &str = "Stop capturing and hide the glow until resumed.";
+    pub const RESET: &str = "Restore all settings, including the outputs, to their defaults.";
+    pub const QUIT: &str = "Exit SideGlow. Closing this window only hides it to the tray.";
 }

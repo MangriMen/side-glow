@@ -49,8 +49,8 @@ pub fn plan_sources(outputs: &[ResolvedOutput], target_fps: u32, stride: u32) ->
         let zone = ZonePlan {
             key: output.key,
             edge: output.config.source_edge,
-            depth_px: output.config.zone_depth_px,
-            spans: output.segments.source_spans(output.config.segments),
+            depth_px: output.zone_depth_px,
+            spans: output.segments.source_spans(output.segment_count),
         };
         match plans
             .iter_mut()

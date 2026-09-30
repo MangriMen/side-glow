@@ -6,7 +6,7 @@ pub mod store;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
-pub const CONFIG_VERSION: u32 = 1;
+pub const CONFIG_VERSION: u32 = 2;
 
 pub const FPS_RANGE: std::ops::RangeInclusive<u32> = 1..=144;
 pub const STRIDE_RANGE: std::ops::RangeInclusive<u32> = 1..=64;
@@ -45,12 +45,24 @@ impl Default for Config {
 impl Config {
     /// Clamps every value into its valid range, so hand-edited files can't break the app.
     pub fn sanitize(&mut self) {
+        self.migrate();
         self.version = CONFIG_VERSION;
-        self.capture.target_fps = clamp_range(self.capture.target_fps, &FPS_RANGE);
-        self.capture.sample_stride = clamp_range(self.capture.sample_stride, &STRIDE_RANGE);
+        self.capture.sanitize();
         self.look.sanitize();
         for output in &mut self.outputs {
             output.sanitize();
+        }
+    }
+
+    fn migrate(&mut self) {
+        if self.version < 2 {
+            // Version 1 stored these on every output. Since version 2 they are global
+            // settings, and a value on an output is an override.
+            for output in &mut self.outputs {
+                output.segments = None;
+                output.zone_depth_px = None;
+                output.opacity = None;
+            }
         }
     }
 }
@@ -61,6 +73,10 @@ pub struct CaptureConfig {
     pub target_fps: u32,
     /// Distance in pixels between sampled pixels inside a capture zone.
     pub sample_stride: u32,
+    /// Number of independent colors along each edge.
+    pub segments: u32,
+    /// Depth of the capture zone into the source monitor, in pixels.
+    pub zone_depth_px: u32,
 }
 
 impl Default for CaptureConfig {
@@ -68,7 +84,18 @@ impl Default for CaptureConfig {
         Self {
             target_fps: 30,
             sample_stride: 4,
+            segments: 8,
+            zone_depth_px: 120,
         }
+    }
+}
+
+impl CaptureConfig {
+    fn sanitize(&mut self) {
+        self.target_fps = clamp_range(self.target_fps, &FPS_RANGE);
+        self.sample_stride = clamp_range(self.sample_stride, &STRIDE_RANGE);
+        self.segments = clamp_range(self.segments, &SEGMENTS_RANGE);
+        self.zone_depth_px = clamp_range(self.zone_depth_px, &ZONE_DEPTH_RANGE);
     }
 }
 
@@ -86,6 +113,9 @@ pub struct LookConfig {
     #[serde(serialize_with = "pretty_f32::serialize")]
     pub glow_depth: f32,
     pub falloff: Falloff,
+    /// Maximum opacity of overlay glows.
+    #[serde(serialize_with = "pretty_f32::serialize")]
+    pub opacity: f32,
 }
 
 impl Default for LookConfig {
@@ -96,6 +126,7 @@ impl Default for LookConfig {
             smoothing_ms: 150.0,
             glow_depth: 0.45,
             falloff: Falloff::Smooth,
+            opacity: 1.0,
         }
     }
 }
@@ -111,6 +142,7 @@ impl LookConfig {
             *GLOW_DEPTH_RANGE.end(),
             0.45,
         );
+        self.opacity = clamp_f32(self.opacity, 0.0, 1.0, 1.0);
     }
 }
 
@@ -260,16 +292,18 @@ pub struct OutputConfig {
     pub target: MonitorId,
     /// Edge of the source monitor that is sampled.
     pub source_edge: Edge,
-    /// Depth of the capture zone into the source monitor, in pixels.
-    pub zone_depth_px: u32,
-    /// Number of independent colors along the edge.
-    pub segments: u32,
     pub mapping: SegmentMapping,
     pub mode: GlowMode,
-    /// Maximum opacity of the overlay glow.
-    #[serde(serialize_with = "pretty_f32::serialize")]
-    pub opacity: f32,
-    /// Per-output overrides of the global look.
+    // Per-output overrides of the global settings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub segments: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub zone_depth_px: Option<u32>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "pretty_f32::serialize_option"
+    )]
+    pub opacity: Option<f32>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         serialize_with = "pretty_f32::serialize_option"
@@ -289,11 +323,11 @@ impl Default for OutputConfig {
             source: MonitorId::default(),
             target: MonitorId::default(),
             source_edge: Edge::Left,
-            zone_depth_px: 120,
-            segments: 8,
             mapping: SegmentMapping::Stretch,
             mode: GlowMode::Overlay,
-            opacity: 1.0,
+            segments: None,
+            zone_depth_px: None,
+            opacity: None,
             glow_depth: None,
             brightness: None,
         }
@@ -320,9 +354,11 @@ impl OutputConfig {
     }
 
     fn sanitize(&mut self) {
-        self.zone_depth_px = clamp_range(self.zone_depth_px, &ZONE_DEPTH_RANGE);
-        self.segments = clamp_range(self.segments, &SEGMENTS_RANGE);
-        self.opacity = clamp_f32(self.opacity, 0.0, 1.0, 1.0);
+        self.segments = self.segments.map(|n| clamp_range(n, &SEGMENTS_RANGE));
+        self.zone_depth_px = self
+            .zone_depth_px
+            .map(|d| clamp_range(d, &ZONE_DEPTH_RANGE));
+        self.opacity = self.opacity.map(|o| clamp_f32(o, 0.0, 1.0, 1.0));
         self.glow_depth = self
             .glow_depth
             .map(|d| clamp_f32(d, *GLOW_DEPTH_RANGE.start(), *GLOW_DEPTH_RANGE.end(), 0.45));
@@ -388,15 +424,42 @@ mod tests {
         config.capture.target_fps = 0;
         config.look.brightness = f32::NAN;
         config.outputs.push(OutputConfig {
-            segments: 0,
-            zone_depth_px: 1_000_000,
+            segments: Some(0),
+            zone_depth_px: Some(1_000_000),
             ..Default::default()
         });
         config.sanitize();
         assert_eq!(config.capture.target_fps, 1);
         assert_eq!(config.look.brightness, 1.0);
-        assert_eq!(config.outputs[0].segments, 1);
-        assert_eq!(config.outputs[0].zone_depth_px, *ZONE_DEPTH_RANGE.end());
+        assert_eq!(config.outputs[0].segments, Some(1));
+        assert_eq!(
+            config.outputs[0].zone_depth_px,
+            Some(*ZONE_DEPTH_RANGE.end())
+        );
+    }
+
+    #[test]
+    fn version_1_output_values_become_global() {
+        let mut config = Config {
+            version: 1,
+            ..Default::default()
+        };
+        config.outputs.push(OutputConfig {
+            segments: Some(8),
+            zone_depth_px: Some(120),
+            opacity: Some(1.0),
+            glow_depth: Some(0.3),
+            ..Default::default()
+        });
+        config.sanitize();
+        assert_eq!(config.version, CONFIG_VERSION);
+        let output = &config.outputs[0];
+        assert_eq!(
+            (output.segments, output.zone_depth_px, output.opacity),
+            (None, None, None)
+        );
+        // Overrides that already existed in version 1 are kept.
+        assert_eq!(output.glow_depth, Some(0.3));
     }
 
     #[test]

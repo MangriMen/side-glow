@@ -25,7 +25,7 @@ impl PreviewSpec {
             title: format!("SideGlow zone {:016x}", output.key.0),
             rect: zone_rect(output),
             scale: output.source.scale,
-            segments: output.config.segments,
+            segments: output.segment_count,
             along_y: output.config.source_edge.is_vertical(),
         }
     }

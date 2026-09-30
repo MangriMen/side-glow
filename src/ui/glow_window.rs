@@ -49,7 +49,7 @@ impl GlowSpec {
             anchor: config.source_edge.opposite(),
             segments: output.segments,
             mode: config.mode,
-            opacity: config.opacity,
+            opacity: config.opacity.unwrap_or(look.opacity),
             depth: config.glow_depth.unwrap_or(look.glow_depth),
             brightness: config.brightness.unwrap_or(look.brightness),
             saturation: look.saturation,

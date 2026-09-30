@@ -98,6 +98,9 @@ pub struct ResolvedOutput {
     pub source: MonitorInfo,
     pub target: MonitorInfo,
     pub segments: SegmentLayout,
+    /// Effective values: the output's override or the global setting.
+    pub segment_count: u32,
+    pub zone_depth_px: u32,
 }
 
 pub fn resolve(config: &Config, monitors: &[MonitorInfo]) -> Vec<ResolvedOutput> {
@@ -118,6 +121,8 @@ pub fn resolve(config: &Config, monitors: &[MonitorInfo]) -> Vec<ResolvedOutput>
                 source: source.clone(),
                 target: target.clone(),
                 segments: SegmentLayout::new(o.mapping, o.source_edge, &source.rect, &target.rect),
+                segment_count: o.segments.unwrap_or(config.capture.segments),
+                zone_depth_px: o.zone_depth_px.unwrap_or(config.capture.zone_depth_px),
             })
         })
         .collect()
@@ -196,7 +201,7 @@ pub fn zone_rect(output: &ResolvedOutput) -> PxRect {
         src.width().max(0) as u32,
         src.height().max(0) as u32,
         output.config.source_edge,
-        output.config.zone_depth_px,
+        output.zone_depth_px,
     );
     let mut rect = PxRect {
         left: src.left + x0 as i32,
@@ -322,7 +327,7 @@ mod tests {
         ];
         let sources = source_monitors(&Config::default(), &monitors);
         let mut tuned = auto_outputs(&monitors, &sources, &[]);
-        tuned[0].segments = 3;
+        tuned[0].segments = Some(3);
         let unplugged = OutputConfig {
             source: monitors[0].id.clone(),
             target: MonitorId {
@@ -335,7 +340,7 @@ mod tests {
 
         let outputs = auto_outputs(&monitors, &sources, &tuned);
         assert_eq!(outputs.len(), 2);
-        assert_eq!(outputs[0].segments, 3);
+        assert_eq!(outputs[0].segments, Some(3));
         assert_eq!(outputs[1], unplugged);
     }
 
@@ -392,6 +397,13 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(resolve(&config, &monitors).len(), 1);
+
+        // Global values apply until an output overrides them.
+        config.capture.segments = 1;
+        assert_eq!(resolve(&config, &monitors)[0].segment_count, 1);
+        config.outputs[0].segments = Some(5);
+        assert_eq!(resolve(&config, &monitors)[0].segment_count, 5);
+
         config.outputs[0].enabled = false;
         assert!(resolve(&config, &monitors).is_empty());
     }

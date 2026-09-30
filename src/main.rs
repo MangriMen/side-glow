@@ -22,7 +22,7 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("SideGlow Settings")
-            .with_inner_size([420.0, 560.0])
+            .with_inner_size([440.0, 700.0])
             .with_min_inner_size([360.0, 300.0])
             .with_icon(egui::IconData {
                 rgba: ICON_RGBA.to_vec(),
