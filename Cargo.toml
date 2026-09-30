@@ -11,32 +11,30 @@ path = "src/main.rs"
 
 [build-dependencies]
 winres = "0.1"
+# The tray/window icon is rasterized at build time, so the SVG stack stays out of the binary.
+resvg = { version = "0.47.0", default-features = false }
 
 [dependencies]
-# Use default features for eframe/egui, but consider disabling unnecessary ones if possible.
-# eframe 0.34.0 defaults include wgpu, which is likely needed.
 eframe = { version = "0.34.0", default-features = false, features = [
   "wgpu",
   "default_fonts",
 ] }
-egui = "0.34.0"
 parking_lot = "0.12.3"
 tray-icon = "0.21.3"
 anyhow = "1.0.95"
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
 windows-capture = "1.1.0"
-# resvg and usvg can be heavy. If only specific SVG features are used, consider if they can be minimized.
-resvg = { version = "0.47.0", default-features = false }
-tiny-skia = "0.12.0"
-usvg = { version = "0.47.0", default-features = false }
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.61.3"
 features = [
+  "Win32_Devices_Display",
   "Win32_Foundation",
-  "Win32_Graphics_Direct3D",
   "Win32_Graphics_Direct3D11",
-  "Win32_System_WinRT",
-  "Win32_System_Threading",
+  "Win32_Graphics_Dxgi_Common",
+  "Win32_Graphics_Gdi",
+  "Win32_UI_HiDpi",
   "Win32_UI_WindowsAndMessaging",
-  "Graphics_Capture",
 ]

@@ -1,38 +1,34 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
-mod capture_service;
-mod components;
-mod core;
-mod ui_adapter;
-mod utils;
+mod capture;
+mod config;
+mod display;
+mod glow;
+mod logging;
+mod ui;
 
 use crate::app::SideGlowApp;
-use crate::core::AppSettings;
-use parking_lot::RwLock;
-use std::sync::Arc;
+use eframe::egui;
+
+const ICON_SIZE: u32 = 64;
+/// Rasterized from `assets/icon.svg` by `build.rs`.
+const ICON_RGBA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/icon.rgba"));
 
 fn main() -> eframe::Result<()> {
-    let settings = Arc::new(RwLock::new(AppSettings::default()));
-
-    capture_service::start_capture_thread(Arc::clone(&settings));
-
-    let icon_data = include_bytes!("../assets/icon.svg");
-    let icon_rgba = crate::utils::render_svg_to_rgba(icon_data, 64, 64);
-    let icon =
-        tray_icon::Icon::from_rgba(icon_rgba.clone(), 64, 64).expect("Failed to create tray icon");
-
-    let eframe_icon = eframe::egui::IconData {
-        rgba: icon_rgba,
-        width: 64,
-        height: 64,
-    };
+    logging::init();
+    log::info!("SideGlow {} starting", env!("CARGO_PKG_VERSION"));
 
     let options = eframe::NativeOptions {
-        viewport: eframe::egui::ViewportBuilder::default()
+        viewport: egui::ViewportBuilder::default()
             .with_title("SideGlow Settings")
-            .with_inner_size([350.0, 450.0])
-            .with_icon(eframe_icon)
+            .with_inner_size([420.0, 560.0])
+            .with_min_inner_size([360.0, 300.0])
+            .with_icon(egui::IconData {
+                rgba: ICON_RGBA.to_vec(),
+                width: ICON_SIZE,
+                height: ICON_SIZE,
+            })
             .with_visible(false)
             .with_active(false),
         ..Default::default()
@@ -41,6 +37,9 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "SideGlow",
         options,
-        Box::new(|cc| Ok(Box::new(SideGlowApp::new(cc, settings, icon)))),
+        Box::new(|cc| {
+            let icon = tray_icon::Icon::from_rgba(ICON_RGBA.to_vec(), ICON_SIZE, ICON_SIZE)?;
+            Ok(Box::new(SideGlowApp::new(cc, icon)?))
+        }),
     )
 }
