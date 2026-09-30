@@ -3,9 +3,16 @@
 use crate::display::PxRect;
 use eframe::egui::{self, ViewportBuilder, ViewportCommand};
 use windows::core::HSTRING;
+use windows::Win32::Graphics::Dwm::{
+    DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE,
 };
+
+/// Tells DWM not to draw an accent border, matching `DWMWA_COLOR_NONE` in the Win32 headers
+/// (not exposed as a constant by the `windows` crate).
+const DWMWA_COLOR_NONE: u32 = 0xFFFF_FFFE;
 
 /// Placement corrections to try before giving up (e.g. if Windows refuses the size).
 const MAX_PLACEMENT_ATTEMPTS: u32 = 8;
@@ -36,7 +43,7 @@ pub fn overlay_builder(
 pub struct OverlayState {
     placed_for: Option<PxRect>,
     attempts: u32,
-    capture_excluded: bool,
+    tuned: bool,
 }
 
 impl OverlayState {
@@ -46,10 +53,10 @@ impl OverlayState {
     /// with mixed DPI. So the actual physical rectangle is compared with the wanted one
     /// and corrected until they match.
     pub fn update(&mut self, ctx: &egui::Context, title: &str, rect: PxRect) {
-        if !self.capture_excluded {
+        if !self.tuned {
             // Also mark it done on failure: retrying FindWindow every frame is not worth it.
-            self.capture_excluded = true;
-            exclude_from_capture(title);
+            self.tuned = true;
+            tune_window(title);
         }
 
         if self.placed_for != Some(rect) {
@@ -99,14 +106,43 @@ impl OverlayState {
     }
 }
 
-/// Keeps our own windows out of screen capture, so the glow and the zone frames never
-/// feed back into the colors that are sampled.
-fn exclude_from_capture(title: &str) {
-    let result = unsafe {
-        FindWindowW(None, &HSTRING::from(title))
-            .and_then(|hwnd| SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE))
+/// One-time Win32 touch-up for a freshly created overlay window:
+/// - excludes it from screen capture, so the glow and the zone frames never feed back into
+///   the colors that are sampled;
+/// - turns off Windows 11's automatic corner rounding and accent border, which otherwise eat
+///   a sliver of every edge on an undecorated window and leave whatever is behind it showing
+///   through.
+fn tune_window(title: &str) {
+    let hwnd = match unsafe { FindWindowW(None, &HSTRING::from(title)) } {
+        Ok(hwnd) => hwnd,
+        Err(err) => {
+            log::warn!("cannot find window '{title}' to tune: {err}");
+            return;
+        }
     };
-    if let Err(err) = result {
+    if let Err(err) = unsafe { SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE) } {
         log::warn!("cannot exclude '{title}' from capture: {err}");
+    }
+    let no_round = DWMWCP_DONOTROUND;
+    if let Err(err) = unsafe {
+        DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            std::ptr::addr_of!(no_round).cast(),
+            size_of_val(&no_round) as u32,
+        )
+    } {
+        log::warn!("cannot disable rounded corners for '{title}': {err}");
+    }
+    let no_border = DWMWA_COLOR_NONE;
+    if let Err(err) = unsafe {
+        DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_BORDER_COLOR,
+            std::ptr::addr_of!(no_border).cast(),
+            size_of_val(&no_border) as u32,
+        )
+    } {
+        log::warn!("cannot disable the accent border for '{title}': {err}");
     }
 }
