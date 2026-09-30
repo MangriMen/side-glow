@@ -155,19 +155,45 @@ fn falloff_point(t: f32, spread: f32) -> (f32, f32) {
     (x, weight)
 }
 
-/// A grid of vertices: rows along the edge at the segment centers, columns across the
-/// glow depth following the falloff curve.
+/// Extra rows inserted between adjacent zone centers, interpolated in linear light before
+/// the mesh is built. The GPU only interpolates the mesh's already gamma-encoded vertex
+/// colors, so a single span bridging two very different zone colors shows a visible band
+/// (Mach banding, worse the sharper the true contrast between neighbours); subdividing
+/// keeps each GPU-interpolated step small enough to hide it.
+const ALONG_SUBDIVISIONS: usize = 4;
+
+/// Inserts `ALONG_SUBDIVISIONS - 1` linearly-interpolated points between each pair of
+/// adjacent anchors.
+fn densify_rows(anchors: &[(f32, Rgb)]) -> Vec<(f32, Rgb)> {
+    let mut rows = Vec::with_capacity((anchors.len() - 1) * ALONG_SUBDIVISIONS + 1);
+    for pair in anchors.windows(2) {
+        let (a0, c0) = pair[0];
+        let (a1, c1) = pair[1];
+        for step in 0..ALONG_SUBDIVISIONS {
+            let t = step as f32 / ALONG_SUBDIVISIONS as f32;
+            let along = egui::lerp(a0..=a1, t);
+            let color = [0, 1, 2].map(|ch| egui::lerp(c0[ch]..=c1[ch], t));
+            rows.push((along, color));
+        }
+    }
+    rows.push(*anchors.last().expect("at least one row"));
+    rows
+}
+
+/// A grid of vertices: rows along the edge at (and between) the segment centers, columns
+/// across the glow depth following the falloff curve.
 fn glow_mesh(spec: &GlowSpec, rect: Rect, colors: &[Rgb]) -> Mesh {
     let count = colors.len();
-    let mut rows: Vec<(f32, Rgb)> = Vec::with_capacity(count + 2);
-    rows.push((0.0, colors[0]));
-    rows.extend(
+    let mut anchors: Vec<(f32, Rgb)> = Vec::with_capacity(count + 2);
+    anchors.push((0.0, colors[0]));
+    anchors.extend(
         colors
             .iter()
             .enumerate()
             .map(|(i, &c)| (spec.segments.target_center(i, count), c)),
     );
-    rows.push((1.0, colors[count - 1]));
+    anchors.push((1.0, colors[count - 1]));
+    let rows = densify_rows(&anchors);
 
     let along_y = spec.anchor.is_vertical();
     let reach = if along_y { rect.width() } else { rect.height() };
