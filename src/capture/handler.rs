@@ -59,7 +59,7 @@ impl GraphicsCaptureApiHandler for ZoneCapture {
 
         self.samplers
             .resize_with(plan.zones.len(), ZoneSampler::default);
-        let texture = unsafe { frame.as_raw_texture() };
+        let texture = frame.as_raw_texture();
         let (width, height) = (frame.width(), frame.height());
 
         for (zone, sampler) in plan.zones.iter().zip(&mut self.samplers) {

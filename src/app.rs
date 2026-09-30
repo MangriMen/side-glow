@@ -235,7 +235,7 @@ impl eframe::App for SideGlowApp {
         let before = self.config.clone();
         let status = self.capture.status();
         let action = egui::CentralPanel::default()
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 settings::show(
                     ui,
                     SettingsView {

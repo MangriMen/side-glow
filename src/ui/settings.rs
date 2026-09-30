@@ -423,7 +423,7 @@ fn optional_slider(
 
 fn combo<T: Copy + PartialEq>(
     ui: &mut egui::Ui,
-    id: impl std::hash::Hash,
+    id: impl std::hash::Hash + std::fmt::Debug,
     label: &str,
     value: &mut T,
     options: &[T],
@@ -443,7 +443,7 @@ fn combo<T: Copy + PartialEq>(
 
 fn monitor_combo(
     ui: &mut egui::Ui,
-    id: impl std::hash::Hash,
+    id: impl std::hash::Hash + std::fmt::Debug,
     label: &str,
     value: &mut MonitorId,
     monitors: &[MonitorInfo],

@@ -10,7 +10,7 @@ fn main() -> std::io::Result<()> {
     #[cfg(windows)]
     {
         println!("cargo:rerun-if-changed=assets/icon.ico");
-        let mut res = winres::WindowsResource::new();
+        let mut res = winresource::WindowsResource::new();
         res.set_icon("assets/icon.ico");
         res.compile()?;
     }

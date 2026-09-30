@@ -1,13 +1,7 @@
 use super::{MonitorInfo, PxRect};
 use crate::config::MonitorId;
 use windows::core::{BOOL, PCWSTR};
-use windows::Win32::Devices::Display::{
-    DisplayConfigGetDeviceInfo, GetDisplayConfigBufferSizes, QueryDisplayConfig,
-    DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME, DISPLAYCONFIG_DEVICE_INFO_HEADER,
-    DISPLAYCONFIG_MODE_INFO, DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME,
-    QDC_ONLY_ACTIVE_PATHS,
-};
-use windows::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS, LPARAM, RECT};
+use windows::Win32::Foundation::{LPARAM, RECT};
 use windows::Win32::Graphics::Gdi::{
     EnumDisplayDevicesW, EnumDisplayMonitors, GetMonitorInfoW, DISPLAY_DEVICEW, HDC, HMONITOR,
     MONITORINFO, MONITORINFOEXW,
@@ -45,11 +39,7 @@ pub fn enumerate_monitors() -> Vec<MonitorInfo> {
         log::error!("EnumDisplayMonitors failed");
     }
 
-    let friendly_names = friendly_names();
-    let mut monitors: Vec<MonitorInfo> = handles
-        .into_iter()
-        .filter_map(|handle| monitor_info(handle, &friendly_names))
-        .collect();
+    let mut monitors: Vec<MonitorInfo> = handles.into_iter().filter_map(monitor_info).collect();
     monitors.sort_by_key(|m| (m.rect.left, m.rect.top));
     disambiguate_names(&mut monitors);
     monitors
@@ -66,67 +56,7 @@ fn disambiguate_names(monitors: &mut [MonitorInfo]) {
     }
 }
 
-/// Maps monitor device interface paths to EDID friendly names.
-///
-/// `windows_capture::Monitor::name` can't be used: it returns the first monitor's name
-/// for every monitor.
-fn friendly_names() -> Vec<(String, String)> {
-    let mut path_count = 0;
-    let mut mode_count = 0;
-    let mut paths;
-    let mut modes;
-    // The path count can change between the two calls when a monitor is plugged in.
-    loop {
-        if unsafe {
-            GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &mut path_count, &mut mode_count)
-        } != ERROR_SUCCESS
-        {
-            return Vec::new();
-        }
-        paths = vec![DISPLAYCONFIG_PATH_INFO::default(); path_count as usize];
-        modes = vec![DISPLAYCONFIG_MODE_INFO::default(); mode_count as usize];
-        let result = unsafe {
-            QueryDisplayConfig(
-                QDC_ONLY_ACTIVE_PATHS,
-                &mut path_count,
-                paths.as_mut_ptr(),
-                &mut mode_count,
-                modes.as_mut_ptr(),
-                None,
-            )
-        };
-        match result {
-            ERROR_SUCCESS => break,
-            ERROR_INSUFFICIENT_BUFFER => continue,
-            _ => return Vec::new(),
-        }
-    }
-    paths.truncate(path_count as usize);
-
-    paths
-        .iter()
-        .filter_map(|path| {
-            let mut target = DISPLAYCONFIG_TARGET_DEVICE_NAME {
-                header: DISPLAYCONFIG_DEVICE_INFO_HEADER {
-                    r#type: DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME,
-                    size: size_of::<DISPLAYCONFIG_TARGET_DEVICE_NAME>() as u32,
-                    adapterId: path.targetInfo.adapterId,
-                    id: path.targetInfo.id,
-                },
-                ..Default::default()
-            };
-            if unsafe { DisplayConfigGetDeviceInfo(&mut target.header) } != 0 {
-                return None;
-            }
-            Some((
-                wide_to_string(&target.monitorDevicePath),
-                wide_to_string(&target.monitorFriendlyDeviceName),
-            ))
-        })
-        .collect()
-}
-
-fn monitor_info(handle: HMONITOR, friendly_names: &[(String, String)]) -> Option<MonitorInfo> {
+fn monitor_info(handle: HMONITOR) -> Option<MonitorInfo> {
     let mut info = MONITORINFOEXW {
         monitorInfo: MONITORINFO {
             cbSize: size_of::<MONITORINFOEXW>() as u32,
@@ -148,10 +78,9 @@ fn monitor_info(handle: HMONITOR, friendly_names: &[(String, String)]) -> Option
     }
 
     let (device_path, device_string) = device_interface(&info.szDevice);
-    let name = friendly_names
-        .iter()
-        .find(|(path, _)| path.eq_ignore_ascii_case(&device_path))
-        .map(|(_, name)| name.clone())
+    let name = windows_capture::monitor::Monitor::from_raw_hmonitor(handle.0)
+        .name()
+        .ok()
         .filter(|name| !name.is_empty())
         .unwrap_or(device_string);
 

@@ -10,27 +10,26 @@ name = "SideGlow"
 path = "src/main.rs"
 
 [build-dependencies]
-winres = "0.1"
+winresource = "0.1.31"
 # The tray/window icon is rasterized at build time, so the SVG stack stays out of the binary.
-resvg = { version = "0.47.0", default-features = false }
+resvg = { version = "0.48.1", default-features = false }
 
 [dependencies]
-eframe = { version = "0.34.0", default-features = false, features = [
+eframe = { version = "0.36.2", default-features = false, features = [
   "wgpu",
   "default_fonts",
 ] }
-parking_lot = "0.12.3"
-tray-icon = "0.21.3"
-anyhow = "1.0.95"
-log = "0.4"
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.8"
-windows-capture = "1.1.0"
+parking_lot = "0.12.5"
+tray-icon = "0.26.0"
+anyhow = "1.0.104"
+log = "0.4.34"
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1.1.6"
+windows-capture = "2.0.1"
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.61.3"
+version = "0.62.2"
 features = [
-  "Win32_Devices_Display",
   "Win32_Foundation",
   "Win32_Graphics_Direct3D11",
   "Win32_Graphics_Dxgi_Common",
