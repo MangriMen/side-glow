@@ -18,7 +18,7 @@ impl TrayManager {
 
         let tray_icon = TrayIconBuilder::new()
             .with_menu(Box::new(tray_menu))
-            .with_tooltip("AmbientSide")
+            .with_tooltip("SideGlow")
             .with_icon(icon)
             .with_menu_on_left_click(false)
             .build()

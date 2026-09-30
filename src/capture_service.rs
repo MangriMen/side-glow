@@ -2,6 +2,7 @@ use crate::core::SharedSettings;
 use anyhow::Result;
 use parking_lot::Mutex;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use windows::Win32::Foundation::HMODULE;
 use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_HARDWARE, D3D_FEATURE_LEVEL_11_0};
 use windows::Win32::Graphics::Direct3D11::{
@@ -22,6 +23,7 @@ use windows_capture::{
 
 pub struct CaptureProcessor {
     settings: SharedSettings,
+    last_frame: Option<Instant>,
 }
 
 impl GraphicsCaptureApiHandler for CaptureProcessor {
@@ -31,6 +33,7 @@ impl GraphicsCaptureApiHandler for CaptureProcessor {
     fn new(ctx: Context<Self::Flags>) -> Result<Self, Self::Error> {
         Ok(Self {
             settings: ctx.flags,
+            last_frame: None,
         })
     }
 
@@ -39,6 +42,15 @@ impl GraphicsCaptureApiHandler for CaptureProcessor {
         frame: &mut Frame,
         _capture_control: windows_capture::graphics_capture_api::InternalCaptureControl,
     ) -> Result<(), Self::Error> {
+        // MinUpdateInterval is not available on every Windows build and is fixed for
+        // the session lifetime, so the live setting is enforced here as well.
+        let interval = frame_interval(self.settings.read().target_fps);
+        let now = Instant::now();
+        if self.last_frame.is_some_and(|last| now - last < interval) {
+            return Ok(());
+        }
+        self.last_frame = Some(now);
+
         let width = frame.width();
         let height = frame.height();
         let mut buffer = frame.buffer()?;
@@ -60,6 +72,10 @@ impl GraphicsCaptureApiHandler for CaptureProcessor {
     fn on_closed(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
+}
+
+fn frame_interval(target_fps: u32) -> Duration {
+    Duration::from_secs(1) / target_fps.max(1)
 }
 
 impl CaptureProcessor {
@@ -125,6 +141,13 @@ pub fn start_capture_thread(settings: SharedSettings) {
         let d3d_device_context = d3d_device_context.unwrap();
         let (capture_item, item_type) = monitor.try_into_capture_item().unwrap();
 
+        let min_update_interval = match GraphicsCaptureApi::is_minimum_update_interval_supported() {
+            Ok(true) => {
+                MinimumUpdateIntervalSettings::Custom(frame_interval(settings.read().target_fps))
+            }
+            _ => MinimumUpdateIntervalSettings::Default,
+        };
+
         let callback = Arc::new(Mutex::new(
             CaptureProcessor::new(Context {
                 flags: settings,
@@ -143,7 +166,7 @@ pub fn start_capture_thread(settings: SharedSettings) {
             CursorCaptureSettings::WithoutCursor,
             DrawBorderSettings::WithoutBorder,
             SecondaryWindowSettings::Exclude,
-            MinimumUpdateIntervalSettings::Default,
+            min_update_interval,
             DirtyRegionSettings::Default,
             ColorFormat::Rgba8,
             unsafe { windows::Win32::System::Threading::GetCurrentThreadId() },

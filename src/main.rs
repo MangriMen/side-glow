@@ -7,7 +7,7 @@ mod core;
 mod ui_adapter;
 mod utils;
 
-use crate::app::AmbientApp;
+use crate::app::SideGlowApp;
 use crate::core::AppSettings;
 use parking_lot::RwLock;
 use std::sync::Arc;
@@ -30,7 +30,7 @@ fn main() -> eframe::Result<()> {
 
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
-            .with_title("AmbientSide Settings")
+            .with_title("SideGlow Settings")
             .with_inner_size([350.0, 450.0])
             .with_icon(eframe_icon)
             .with_visible(false)
@@ -39,8 +39,8 @@ fn main() -> eframe::Result<()> {
     };
 
     eframe::run_native(
-        "AmbientSide",
+        "SideGlow",
         options,
-        Box::new(|cc| Ok(Box::new(AmbientApp::new(cc, settings, icon)))),
+        Box::new(|cc| Ok(Box::new(SideGlowApp::new(cc, settings, icon)))),
     )
 }

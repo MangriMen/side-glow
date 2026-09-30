@@ -3,11 +3,11 @@ use crate::ui_adapter::UiAdapter;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-pub struct AmbientApp {
+pub struct SideGlowApp {
     ui_adapter: UiAdapter,
 }
 
-impl AmbientApp {
+impl SideGlowApp {
     pub fn new(
         _cc: &eframe::CreationContext<'_>,
         settings: Arc<RwLock<AppSettings>>,
@@ -19,7 +19,7 @@ impl AmbientApp {
     }
 }
 
-impl eframe::App for AmbientApp {
+impl eframe::App for SideGlowApp {
     fn ui(&mut self, ui: &mut eframe::egui::Ui, _frame: &mut eframe::Frame) {
         self.ui_adapter.render_settings(ui);
     }

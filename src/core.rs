@@ -12,6 +12,7 @@ pub struct AppSettings {
     pub show_settings: bool,
     pub show_zone_preview: bool,
     pub zone_width: f32,
+    pub target_fps: u32,
 }
 
 impl Default for AppSettings {
@@ -26,6 +27,7 @@ impl Default for AppSettings {
             show_settings: false,
             show_zone_preview: false,
             zone_width: 120.0,
+            target_fps: 30,
         }
     }
 }
