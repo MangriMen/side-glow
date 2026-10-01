@@ -21,7 +21,8 @@ jobs:
       - name: Check tag against Cargo.toml and CHANGELOG.md
         shell: pwsh
         run: |
-          $version = '${{ github.ref_name }}'.TrimStart('v')
+          # v0.2.0-rc.1 is checked against 0.2.0: pre-releases reuse the base version's notes.
+          $version = ('${{ github.ref_name }}'.TrimStart('v') -split '-')[0]
           $cargo = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages[0].version
           if ($cargo -ne $version) { throw "Tag is $version but Cargo.toml has $cargo" }
           ./scripts/extract-changelog.ps1 -Version $version | Set-Content release-notes.md
