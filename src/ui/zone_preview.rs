@@ -1,9 +1,9 @@
 //! Frames drawn over the capture zones so they can be tuned visually.
 
-use super::overlay::{overlay_builder, OverlayState};
+use super::overlay::{OverlayState, overlay_builder};
 use crate::config::OutputKey;
-use crate::display::layout::{zone_rect, ResolvedOutput};
 use crate::display::PxRect;
+use crate::display::layout::{ResolvedOutput, zone_rect};
 use eframe::egui::{self, Color32, Stroke, StrokeKind, ViewportId};
 use parking_lot::Mutex;
 use std::sync::Arc;

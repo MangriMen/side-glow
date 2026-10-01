@@ -4,8 +4,8 @@ mod handler;
 pub mod sampler;
 
 use crate::config::{Edge, OutputKey};
-use crate::display::layout::ResolvedOutput;
 use crate::display::MonitorInfo;
+use crate::display::layout::ResolvedOutput;
 use crate::glow::bus::ColorBus;
 use handler::{CaptureFlags, ZoneCapture};
 use parking_lot::Mutex;
@@ -195,10 +195,10 @@ impl Drop for CaptureService {
 
 impl Session {
     fn stop(&mut self) {
-        if let Some(control) = self.control.take() {
-            if let Err(err) = control.stop() {
-                log::warn!("failed to stop capture of {}: {err}", self.name);
-            }
+        if let Some(control) = self.control.take()
+            && let Err(err) = control.stop()
+        {
+            log::warn!("failed to stop capture of {}: {err}", self.name);
         }
     }
 

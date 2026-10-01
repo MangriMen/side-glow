@@ -2,13 +2,13 @@
 
 use crate::display::PxRect;
 use eframe::egui::{self, ViewportBuilder, ViewportCommand};
-use windows::core::HSTRING;
 use windows::Win32::Graphics::Dwm::{
-    DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND,
+    DWMWA_BORDER_COLOR, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DwmSetWindowAttribute,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE,
 };
+use windows::core::HSTRING;
 
 /// Tells DWM not to draw an accent border, matching `DWMWA_COLOR_NONE` in the Win32 headers
 /// (not exposed as a constant by the `windows` crate).

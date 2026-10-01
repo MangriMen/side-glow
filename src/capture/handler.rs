@@ -1,5 +1,5 @@
-use super::sampler::ZoneSampler;
 use super::SourcePlan;
+use super::sampler::ZoneSampler;
 use crate::display::layout::capture_zone;
 use crate::glow::bus::ColorBus;
 use parking_lot::Mutex;

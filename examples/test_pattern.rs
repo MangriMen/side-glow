@@ -5,7 +5,7 @@
 //! - slow:   hues drifting across the screen (a calm scene)
 //! - fast:   a grid of random colors changing 30 times per second (busy video)
 
-use eframe::egui::{self, ecolor::Hsva, Color32, Rect};
+use eframe::egui::{self, Color32, Rect, ecolor::Hsva};
 use std::time::Duration;
 
 #[derive(Clone, Copy, PartialEq)]
