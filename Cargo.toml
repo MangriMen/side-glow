@@ -44,3 +44,7 @@ features = [
   "Win32_UI_HiDpi",
   "Win32_UI_WindowsAndMessaging",
 ]
+
+[profile.release]
+# A panic ends the process instead of silently killing one thread; ~20% smaller exe.
+panic = "abort"

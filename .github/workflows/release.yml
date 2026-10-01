@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Check tag against Cargo.toml and CHANGELOG.md
+        shell: pwsh
+        run: |
+          # v0.2.0-rc.1 is checked against 0.2.0: pre-releases reuse the base version's notes.
+          $version = ('${{ github.ref_name }}'.TrimStart('v') -split '-')[0]
+          $cargo = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages[0].version
+          if ($cargo -ne $version) { throw "Tag is $version but Cargo.toml has $cargo" }
+          ./scripts/extract-changelog.ps1 -Version $version | Set-Content release-notes.md
+          if (-not (Get-Content release-notes.md)) { throw "CHANGELOG.md section [$version] is empty" }
+
+      - run: cargo test --locked
+      - run: cargo build --locked --release
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          Copy-Item target/release/SideGlow.exe SideGlow.exe
+          $hash = (Get-FileHash SideGlow.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  SideGlow.exe" | Set-Content -NoNewline -Encoding ascii SideGlow.exe.sha256
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            SideGlow.exe
+            SideGlow.exe.sha256
