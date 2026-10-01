@@ -40,6 +40,8 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           body_path: release-notes.md
+          # Created as a draft: review the notes and assets, then publish it by hand.
+          draft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             SideGlow.exe
