@@ -11,9 +11,12 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # Smaller, faster dev/test builds and caches; backtraces still have line numbers.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 jobs:
-  check:
+  # clippy --all-targets also type-checks the examples, so no separate example build.
+  lint:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,9 +25,18 @@ jobs:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: windows
+          shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
+
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo test --locked
-      - run: cargo build --locked --release --examples
