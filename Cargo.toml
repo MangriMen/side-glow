@@ -2,7 +2,13 @@
 name = "sideglow"
 version = "0.1.0"
 edition = "2021"
+description = "Ambient light for multi-monitor setups on Windows"
 license = "MIT"
+repository = "https://github.com/MangriMen/side-glow"
+readme = "README.md"
+keywords = ["ambilight", "ambient-light", "monitor", "windows"]
+categories = ["multimedia"]
+publish = false
 build = "build.rs"
 
 [[bin]]
