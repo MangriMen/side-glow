@@ -21,9 +21,18 @@ winresource = "0.1.31"
 resvg = { version = "0.48.1", default-features = false }
 
 [dependencies]
+# `wgpu_no_default_features` + the explicit wgpu below keep only the DX12 backend:
+# eframe's `wgpu` feature would also build Vulkan, GLES and the GLSL/SPIR-V writers.
 eframe = { version = "0.36.2", default-features = false, features = [
-  "wgpu",
+  "wgpu_no_default_features",
   "default_fonts",
+] }
+# Keep the major in step with the one eframe uses.
+wgpu = { version = "30", default-features = false, features = [
+  "std",
+  "wgsl",
+  "parking_lot",
+  "dx12",
 ] }
 parking_lot = "0.12.5"
 tray-icon = "0.26.0"
