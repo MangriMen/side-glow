@@ -16,10 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: windows
-          save-if: false
 
       - name: Check tag against Cargo.toml and CHANGELOG.md
         shell: pwsh
