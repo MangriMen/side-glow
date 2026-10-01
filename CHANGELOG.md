@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-02
+
+### Added
+
+- A message box with the error and the log path when the app fails to start (for example
+  when no graphics adapter can be initialized); release builds have no console, so the
+  failure used to be invisible.
+
+### Changed
+
+- The settings window uses the system fonts (Segoe UI, Consolas) instead of fonts bundled
+  into the executable, which makes it about 1.4 MB smaller.
+- Moved to Rust edition 2024; the minimum supported Rust version is now 1.95.
+
 ## [0.1.0] - 2026-10-02
 
 First release.
@@ -36,5 +50,6 @@ First release.
 - Mach banding next to bright objects: the glow mesh is subdivided and interpolated in
   linear light.
 
-[Unreleased]: https://github.com/MangriMen/side-glow/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/MangriMen/side-glow/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/MangriMen/side-glow/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/MangriMen/side-glow/releases/tag/v0.1.0
