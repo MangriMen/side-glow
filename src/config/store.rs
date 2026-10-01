@@ -51,10 +51,10 @@ impl ConfigStore {
         if *config == self.saved {
             return;
         }
-        if let Some(path) = &self.path {
-            if let Err(err) = save_to(path, config) {
-                log::error!("failed to save config: {err:#}");
-            }
+        if let Some(path) = &self.path
+            && let Err(err) = save_to(path, config)
+        {
+            log::error!("failed to save config: {err:#}");
         }
         self.saved = config.clone();
         self.dirty_since = None;

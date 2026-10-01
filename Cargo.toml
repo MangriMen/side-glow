@@ -1,7 +1,8 @@
 [package]
 name = "sideglow"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.95"
 description = "Ambient light for multi-monitor setups on Windows"
 license = "MIT"
 repository = "https://github.com/MangriMen/side-glow"
@@ -23,7 +24,6 @@ resvg = { version = "0.48.1", default-features = false }
 [dependencies]
 eframe = { version = "0.36.2", default-features = false, features = [
   "wgpu",
-  "default_fonts",
 ] }
 parking_lot = "0.12.5"
 tray-icon = "0.26.0"

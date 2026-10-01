@@ -1,15 +1,15 @@
 use super::{MonitorInfo, PxRect};
 use crate::config::MonitorId;
-use windows::core::{BOOL, PCWSTR};
 use windows::Win32::Foundation::{LPARAM, RECT};
 use windows::Win32::Graphics::Gdi::{
-    EnumDisplayDevicesW, EnumDisplayMonitors, GetMonitorInfoW, DISPLAY_DEVICEW, HDC, HMONITOR,
+    DISPLAY_DEVICEW, EnumDisplayDevicesW, EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR,
     MONITORINFO, MONITORINFOEXW,
 };
 use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
 use windows::Win32::UI::WindowsAndMessaging::{
     EDD_GET_DEVICE_INTERFACE_NAME, MONITORINFOF_PRIMARY,
 };
+use windows::core::{BOOL, PCWSTR};
 
 /// Lists the connected monitors with their physical rectangles.
 ///

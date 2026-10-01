@@ -4,6 +4,7 @@ mod app;
 mod capture;
 mod config;
 mod display;
+mod error_dialog;
 mod glow;
 mod logging;
 mod ui;
@@ -15,10 +16,34 @@ const ICON_SIZE: u32 = 64;
 /// Rasterized from `assets/icon.svg` by `build.rs`.
 const ICON_RGBA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/icon.rgba"));
 
-fn main() -> eframe::Result<()> {
+fn main() {
     logging::init();
     log::info!("SideGlow {} starting", env!("CARGO_PKG_VERSION"));
 
+    if let Err(err) = run() {
+        log::error!("failed to start: {err}");
+        let log_hint = config::store::app_dir()
+            .map(|dir| {
+                format!(
+                    "
+
+Log: {}",
+                    dir.join("sideglow.log").display()
+                )
+            })
+            .unwrap_or_default();
+        error_dialog::show(&format!(
+            "SideGlow could not start.
+
+{err}
+
+             If this is a graphics error, update your GPU driver.{log_hint}"
+        ));
+        std::process::exit(1);
+    }
+}
+
+fn run() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("SideGlow Settings")
@@ -38,6 +63,7 @@ fn main() -> eframe::Result<()> {
         "SideGlow",
         options,
         Box::new(|cc| {
+            ui::fonts::install(&cc.egui_ctx);
             let icon = tray_icon::Icon::from_rgba(ICON_RGBA.to_vec(), ICON_SIZE, ICON_SIZE)?;
             Ok(Box::new(SideGlowApp::new(cc, icon)?))
         }),

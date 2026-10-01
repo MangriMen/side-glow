@@ -2,14 +2,14 @@
 
 use crate::capture::SessionStatus;
 use crate::config::{
-    CaptureConfig, Config, Edge, GlowMode, LookConfig, MonitorId, OutputConfig, SegmentMapping,
-    FPS_RANGE, GLOW_SPREAD_RANGE, SEGMENTS_RANGE, STRIDE_RANGE, ZONE_DEPTH_RANGE,
+    CaptureConfig, Config, Edge, FPS_RANGE, GLOW_SPREAD_RANGE, GlowMode, LookConfig, MonitorId,
+    OutputConfig, SEGMENTS_RANGE, STRIDE_RANGE, SegmentMapping, ZONE_DEPTH_RANGE,
 };
-use crate::display::layout::{source_monitors, ResolvedOutput};
+use crate::display::layout::{ResolvedOutput, source_monitors};
 use crate::display::{MonitorInfo, PxRect};
 use crate::glow::bus::ColorBus;
 use crate::glow::color::{adjust, to_color32};
-use eframe::egui::{self, emath::Numeric, Align2, Color32, FontId, Rect, Sense, StrokeKind};
+use eframe::egui::{self, Align2, Color32, FontId, Rect, Sense, StrokeKind, emath::Numeric};
 use std::ops::RangeInclusive;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

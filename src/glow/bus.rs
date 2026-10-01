@@ -1,4 +1,4 @@
-use super::{glow_viewport_id, Rgb};
+use super::{Rgb, glow_viewport_id};
 use crate::config::OutputKey;
 use eframe::egui::{self, ViewportId};
 use parking_lot::Mutex;

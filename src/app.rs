@@ -1,4 +1,4 @@
-use crate::capture::{plan_sources, CaptureService};
+use crate::capture::{CaptureService, plan_sources};
 use crate::config::store::ConfigStore;
 use crate::config::{Config, MonitorId, OutputKey};
 use crate::display::layout::{self, ResolvedOutput};

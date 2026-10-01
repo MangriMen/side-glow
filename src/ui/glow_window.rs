@@ -1,13 +1,13 @@
 //! The glow itself: one borderless window covering the target monitor per output.
 
-use super::overlay::{overlay_builder, OverlayState};
+use super::overlay::{OverlayState, overlay_builder};
 use crate::config::{Edge, GlowMode, LookConfig, OutputKey};
-use crate::display::layout::{ResolvedOutput, SegmentLayout};
 use crate::display::PxRect;
+use crate::display::layout::{ResolvedOutput, SegmentLayout};
 use crate::glow::bus::ColorBus;
 use crate::glow::color::{adjust, to_color32};
 use crate::glow::smoothing::Smoother;
-use crate::glow::{glow_viewport_id, Rgb};
+use crate::glow::{Rgb, glow_viewport_id};
 use eframe::egui::{self, Color32, Mesh, Pos2, Rect, Shape};
 use parking_lot::Mutex;
 use std::sync::Arc;
