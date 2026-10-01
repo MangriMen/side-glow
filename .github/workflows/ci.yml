@@ -3,6 +3,12 @@ name: CI
 on:
   push:
     branches: [main]
+    # Docs-only merges don't need a rebuild. Not applied to pull_request, so a required
+    # CI check can't leave a docs-only PR waiting for a status that never comes.
+    paths-ignore:
+      - '**.md'
+      - LICENSE
+      - .vscode/**
   pull_request:
 
 concurrency:
