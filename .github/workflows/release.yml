@@ -37,7 +37,7 @@ jobs:
           $hash = (Get-FileHash SideGlow.exe -Algorithm SHA256).Hash.ToLower()
           "$hash  SideGlow.exe" | Set-Content -NoNewline -Encoding ascii SideGlow.exe.sha256
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           body_path: release-notes.md
           # Created as a draft: review the notes and assets, then publish it by hand.
