@@ -22,7 +22,7 @@ winresource = "0.1.31"
 resvg = { version = "0.48.1", default-features = false }
 
 [dependencies]
-eframe = { version = "0.36.2", default-features = false, features = [
+eframe = { version = "0.37.0", default-features = false, features = [
   "wgpu",
 ] }
 parking_lot = "0.12.5"
