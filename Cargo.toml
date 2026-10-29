@@ -25,7 +25,7 @@ resvg = { version = "0.48.1", default-features = false }
 eframe = { version = "0.36.2", default-features = false, features = [
   "wgpu",
 ] }
-parking_lot = "0.12.5"
+parking_lot = "0.13.0"
 tray-icon = "0.26.0"
 anyhow = "1.0.104"
 log = "0.4.34"
